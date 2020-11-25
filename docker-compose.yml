@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  app:
+    build:
+      context: ./app
+    volumes:
+      - ./app:/app
+    ports:
+      - 3349:3349
+      - 7002:7002
+      - 3000:3000
+    command: lein figwheel
