@@ -1,0 +1,9 @@
+FROM clojure
+
+WORKDIR /app
+
+COPY . /app
+
+RUN lein ring uberjar
+
+CMD java -jar target/app.jar

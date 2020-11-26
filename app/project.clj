@@ -25,6 +25,8 @@
 
   :ring {:handler server.core/run}
 
+  :uberjar-name "app.jar"
+
   :figwheel {:http-server-root "."
              :nrepl-port       7002
              :nrepl-middleware [cider.piggieback/wrap-cljs-repl]
