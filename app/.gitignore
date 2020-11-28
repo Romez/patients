@@ -15,3 +15,4 @@ pom.xml.asc
 *.log
 /.env
 .rebel_readline_history
+fegwheel_server.log

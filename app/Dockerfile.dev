@@ -5,3 +5,7 @@ WORKDIR /app
 COPY ./project.clj /app/project.clj
 
 RUN lein deps
+
+EXPOSE 3000
+EXPOSE 3449
+EXPOSE 7002

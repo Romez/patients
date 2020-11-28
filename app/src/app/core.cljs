@@ -1,17 +1,15 @@
 (ns app.core
     (:require
       [reagent.core :as r]
-      [reagent.dom :as d]))
+      [reagent.dom :as d]
+      [app.header :refer (header)]))
 
 ;; -------------------------
 ;; Views
 
-(defn foo [] (println "x"))
-
 (defn home-page []
-  [:div
-   [:h1 "2 Patients"]])
-
+  [:div {:class "container"}
+   (header)])
 ;; -------------------------
 ;; Initialize app
 
