@@ -53,3 +53,22 @@
 
       (is (= 200 status))
       (is (= patients result)))))
+
+(deftest test-patient-create
+  (testing "create patient"
+    (let [data {:full_name "Vasya"
+                                    :gender "male"
+                                    :birthday "1945-11-19"
+                                    :address "homeless"
+                                    :oms 456234456}
+          {:keys [status body]} (app  (-> (mock/request :post "/api/v1/patients")
+                                          (mock/json-body {:data {:attributes data}})))
+          result (-> (json/read-str body :key-fn keyword)
+                     (:data)
+                     (:attributes)
+                     (update :birthday format/parse))
+          expected (update data :birthday format/parse)]
+
+      (is (= 201 status))
+      (is (= expected result))
+      (is (= expected (-> (select patient) first (dissoc :id)))))))

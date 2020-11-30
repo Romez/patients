@@ -6,7 +6,7 @@
 
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/clojurescript "1.10.773"]
-                 [reagent "0.10.0"]
+                 [reagent "1.0.0-rc1"]
                  [ring "1.8.2"]
                  [compojure "1.6.2"]
                  [hiccup "1.0.5"]
@@ -17,7 +17,9 @@
                  [org.postgresql/postgresql "42.2.4"]
                  [ring/ring-json "0.5.0"]
                  [org.clojure/data.json "1.0.0"]
-                 [clj-time "0.15.2"]]
+                 [clj-time "0.15.2"]
+                 [cljs-ajax "0.7.5"]
+                 [reagent-forms "0.5.23"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]
