@@ -19,7 +19,8 @@
                  [org.clojure/data.json "1.0.0"]
                  [clj-time "0.15.2"]
                  [cljs-ajax "0.7.5"]
-                 [reagent-forms "0.5.23"]]
+                 [reagent-forms "0.5.23"]
+                 [org.clojars.frozenlock/reagent-modals "0.2.3"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]

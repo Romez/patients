@@ -1,6 +1,5 @@
 build:
   docker:
     web: ./app/Dockerfile.prod
-
 run:
   web: java -jar target/app.jar

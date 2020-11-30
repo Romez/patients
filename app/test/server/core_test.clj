@@ -8,7 +8,7 @@
   (:use [server.core :only (app patient)]
         [server.migration :only (migrate)]
         clojure.test
-        [korma.core :only (select insert values)]))
+        [korma.core :only (select insert values delete where)]))
 
 (defn with-rollback
   [fn]
@@ -57,18 +57,27 @@
 (deftest test-patient-create
   (testing "create patient"
     (let [data {:full_name "Vasya"
-                                    :gender "male"
-                                    :birthday "1945-11-19"
-                                    :address "homeless"
-                                    :oms 456234456}
+                :gender "male"
+                :birthday "1945-11-19"
+                :address "homeless"
+                :oms 456234456}
           {:keys [status body]} (app  (-> (mock/request :post "/api/v1/patients")
                                           (mock/json-body {:data {:attributes data}})))
-          result (-> (json/read-str body :key-fn keyword)
-                     (:data)
-                     (:attributes)
-                     (update :birthday format/parse))
+          {:keys [id attributes]} (:data (json/read-str body :key-fn keyword))
+
+          result (update attributes :birthday format/parse)
+
           expected (update data :birthday format/parse)]
 
       (is (= 201 status))
       (is (= expected result))
-      (is (= expected (-> (select patient) first (dissoc :id)))))))
+      (is (= expected (-> (select patient (where {:id id})) first (dissoc :id)))))))
+
+(deftest test-patient-delete
+  (testing "delete patient"
+    (let [{:keys [id]} (insert patient (values {:full_name "Vasya" :gender "male"
+                                          :birthday (time/date-time 1966 1 3)
+                                          :address "homeless" :oms 456234456}))
+          {:keys [status]} (app (mock/request :delete (str "/api/v1/patients/" id)))]
+      (is (= 204 status))
+      (is (empty? (select patient (where {:id id})))))))
