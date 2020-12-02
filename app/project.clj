@@ -20,7 +20,8 @@
                  [clj-time "0.15.2"]
                  [cljs-ajax "0.7.5"]
                  [reagent-forms "0.5.23"]
-                 [org.clojars.frozenlock/reagent-modals "0.2.3"]]
+                 [org.clojars.frozenlock/reagent-modals "0.2.3"]
+                 [com.taoensso/tempura "1.2.1"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]
@@ -33,43 +34,44 @@
    [:cljsbuild :builds :app :compiler :output-dir]
    [:cljsbuild :builds :app :compiler :output-to]]
 
+  :source-paths ["src/clj" "src/cljc" "src/cljs"]
+
   :resource-paths ["resources" "target/cljsbuild"]
 
-  :ring {:handler server.core/app}
+  :ring {:handler patients.server/app}
 
   :uberjar-name "app.jar"
 
   :figwheel {
-             ;; :http-server-root "."
+             :http-server-root "public"
              :nrepl-port       7002
              :nrepl-host       "0.0.0.0"
              :nrepl-middleware [cider.piggieback/wrap-cljs-repl]
              :css-dirs         ["resources/public/css"]
-             :ring-handler     server.core/app}
+             :ring-handler     patients.server/app}
 
   :cljsbuild {:builds
-              {:app
-               {:source-paths ["src" "env/dev/cljs"]
-                :watch-paths ["src"]
-                :compiler {:main          "app.dev"
-                           :recompile-dependents false
-                           :output-to     "resources/public/js/app.js"
-                           :output-dir    "resources/public/js/out"
-                           :asset-path    "js/out"
-                           :source-map    true
-                           :optimizations :none
-                           :pretty-print  true}
-                :figwheel {:on-jsload "app.core/mount-root"}}
-               :release {:source-paths ["src" "env/prod/cljs"]
-                         :compiler     {:output-to     "target/cljsbuild/public/js/app.js"
-                                        :output-dir    "target/cljsbuild/public/js/out"
-                                        :optimizations :advanced
-                                        :infer-externs true
-                                        :pretty-print  false}}}}
+              {:app {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
+                     :watch-paths ["src"]
+                     :figwheel {:on-jsload "patients.core/mount-root"}
+                     :compiler {:main "patients.dev"
+                                :recompile-dependents false
+                                :output-to "resources/public/js/app.js"
+                                :output-dir "resources/public/js/out"
+                                :asset-path "js/out"
+                                :source-map true
+                                :optimizations :none
+                                :pretty-print true}}
+               :release {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
+                         :compiler {:output-to "target/cljsbuild/public/js/app.js"
+                                    :output-dir "target/cljsbuild/public/js/out"
+                                    :optimizations :advanced
+                                    :infer-externs true
+                                    :pretty-print false}}}}
 
   :aliases {"package" ["do" "clean" ["cljsbuild" "once" "release"]]
-            "migrate" ["run" "-m" "server.migration/migrate"]
-            "rollback" ["run" "-m" "server.migration/rollback"]}
+            "migrate" ["run" "-m" "patients.migration/migrate"]
+            "rollback" ["run" "-m" "patients.migration/rollback"]}
 
   :profiles {:dev {:source-paths ["src" "env/dev/clj"]
                    :dependencies [[binaryage/devtools "1.0.2"]

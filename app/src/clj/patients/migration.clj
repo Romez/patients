@@ -1,4 +1,4 @@
-(ns server.migration
+(ns patients.migration
   (:require [ragtime.jdbc :as jdbc]
             [environ.core :refer [env]]
             [ragtime.repl :as repl]))

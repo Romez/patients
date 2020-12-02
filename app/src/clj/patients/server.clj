@@ -1,4 +1,4 @@
-(ns server.core
+(ns patients.server
   (:require
    [compojure.route :as route]
    [hiccup.page :refer [html5 include-js include-css]]
@@ -9,7 +9,7 @@
    [ring.util.response :refer [response status]]
    [korma.core :as korma])
   (:use compojure.core
-        [server.utils :only (unparse-date)]
+        [patients.utils :only (unparse-date)]
         [korma.db :only (defdb postgres)]))
 
 (defn page []
@@ -43,8 +43,7 @@
                                                   :attributes (-> record
                                                                   (dissoc :id)
                                                                   (update :birthday unparse-date))})
-                                                (korma/select patient))
-                                     }]
+                                                (korma/select patient))}]
                          (response result)))
 
            (POST "/" request (let [{:keys [body]} request

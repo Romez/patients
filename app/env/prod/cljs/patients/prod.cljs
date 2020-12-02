@@ -1,6 +1,6 @@
 (ns app.prod
   (:require
-    [app.core :as core]))
+    [patients.core :as core]))
 
 ;;ignore println statements in prod
 (set! *print-fn* (fn [& _]))

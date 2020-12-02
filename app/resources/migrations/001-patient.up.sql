@@ -8,4 +8,4 @@ CREATE table patient (
   gender gender,
   birthday date,
   address VARCHAR,
-  oms int);
+  insurance int);

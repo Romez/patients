@@ -1,4 +1,4 @@
-(ns app.routes)
+(ns patients.routes)
 
 (def host "")
 

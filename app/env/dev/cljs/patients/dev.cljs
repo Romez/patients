@@ -1,6 +1,6 @@
-(ns ^:figwheel-no-load app.dev
+(ns ^:figwheel-no-load patients.dev
   (:require
-    [app.core :as core]
+    [patients.core :as core]
     [devtools.core :as devtools]))
 
 (extend-protocol IPrintWithWriter
