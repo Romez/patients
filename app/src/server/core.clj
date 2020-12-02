@@ -6,11 +6,11 @@
    [clj-time.jdbc]
    [clj-time.format :as format]
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
-   [ring.util.response :refer [response status]])
+   [ring.util.response :refer [response status]]
+   [korma.core :as korma])
   (:use compojure.core
         [server.utils :only (unparse-date)]
-        [korma.db :only (defdb postgres)]
-        [korma.core :only (defentity select insert values delete where)]))
+        [korma.db :only (defdb postgres)]))
 
 (defn page []
   (html5
@@ -33,7 +33,7 @@
                      :password (:db-password env)
                      :stringtype "unspecified"}))
 
-(defentity patient)
+(korma/defentity patient)
 
 (defroutes handler
   (GET "/" [] (page))
@@ -43,12 +43,12 @@
                                                   :attributes (-> record
                                                                   (dissoc :id)
                                                                   (update :birthday unparse-date))})
-                                                (select patient))
+                                                (korma/select patient))
                                      }]
                          (response result)))
 
            (POST "/" request (let [{:keys [body]} request
-                                   record (insert patient (values (:attributes (:data body))))]
+                                   record (korma/insert patient (korma/values (:attributes (:data body))))]
                                (-> (response {:data {:id (:id record)
                                                      :attributes (-> record
                                                                      (dissoc :id)
@@ -56,9 +56,17 @@
                                                                      )}})
                                    (status 201))))
            (DELETE "/:id" [id]
-                   (if (> (delete patient (where {:id id})) 0)
+                   (if (> (korma/delete patient (korma/where {:id id})) 0)
                      {:status 204}
-                     {:status 404})))
+                     {:status 404}))
+           (PATCH "/:id" {:keys [params body]}
+                  (if (> (korma/update
+                          patient
+                          (korma/set-fields (-> body :data  :attributes))
+                          (korma/where {:id (:id params)})) 0)
+                    {:status 200}
+                    {:status 404})
+                  ))
   (route/resources "/")
   (route/not-found "not found"))
 

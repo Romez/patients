@@ -81,3 +81,18 @@
           {:keys [status]} (app (mock/request :delete (str "/api/v1/patients/" id)))]
       (is (= 204 status))
       (is (empty? (select patient (where {:id id})))))))
+
+(deftest test-patient-update
+  (testing "update patient"
+    (let [{:keys [id]} (insert patient (values {:full_name "Vasya" :gender "male"
+                                                :birthday (time/date-time 1966 1 3)
+                                                :address "homeless" :oms 456234456}))
+          {:keys [status body]} (app (-> (mock/request :patch (str "/api/v1/patients/" id))
+                                    (mock/json-body {:data {:attributes {:full_name "Maria" :gender "female"
+                                                                         :birthday "1996-2-4"
+                                                                         :address "Moscow" :oms 555666777}}})))]
+      (is (= 200 status))
+      (is (= (-> (select patient (where {:id id})) first (dissoc :id))
+             {:full_name "Maria" :gender "female"
+              :birthday (time/date-time 1996 2 4)
+              :address "Moscow" :oms 555666777})))))
