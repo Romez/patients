@@ -4,10 +4,11 @@
    [hiccup.page :refer [html5 include-js include-css]]
    [environ.core :refer [env]]
    [clj-time.jdbc]
-   [clj-time.format :as format]
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
    [ring.util.response :refer [response status]]
-   [korma.core :as korma])
+   [korma.core :as korma]
+   [patients.validation :refer [validate-patient]]
+   [clojure.spec.alpha :as s])
   (:use compojure.core
         [patients.utils :only (unparse-date)]
         [korma.db :only (defdb postgres)]))
@@ -25,6 +26,7 @@
     (include-js "https://code.jquery.com/jquery-3.2.1.slim.min.js")
     (include-js "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js")
     (include-js "/js/app.js")]))
+
 
 (defdb db (postgres {:host (:db-host env)
                      :port (:db-port env)
@@ -47,28 +49,38 @@
                          (response result)))
 
            (POST "/" request (let [{:keys [body]} request
-                                   record (korma/insert patient (korma/values (:attributes (:data body))))]
-                               (-> (response {:data {:id (:id record)
-                                                     :attributes (-> record
-                                                                     (dissoc :id)
-                                                                     (update :birthday unparse-date)
-                                                                     )}})
-                                   (status 201))))
+                                   [errors data] (validate-patient (-> body :data :attributes))]
+                               (if (not (nil? errors))
+                                 (-> (response {:errors errors}) (status 422))
+                                 (let [record (korma/insert patient (korma/values data))
+                                       data {:data {:id (:id record)
+                                                    :attributes (-> record (dissoc :id) (update :birthday unparse-date))}}]
+                                   (-> (response data) (status 201))))))
            (DELETE "/:id" [id]
                    (if (> (korma/delete patient (korma/where {:id id})) 0)
                      {:status 204}
                      {:status 404}))
            (PATCH "/:id" {:keys [params body]}
-                  (if (> (korma/update
-                          patient
-                          (korma/set-fields (-> body :data  :attributes))
-                          (korma/where {:id (:id params)})) 0)
-                    {:status 200}
-                    {:status 404})
-                  ))
+                  (let [[errors data] (validate-patient (-> body :data :attributes))]
+                    (if (not (nil? errors))
+                       (-> (response {:errors errors}) (status 422))
+                       (if (> (korma/update
+                               patient
+                               (korma/set-fields (-> body :data  :attributes))
+                               (korma/where {:id (:id params)})) 0)
+                         {:status 200}
+                         {:status 404})))))
   (route/resources "/")
   (route/not-found "not found"))
 
+(defn wrap-exception [handler]
+  (fn [request]
+    (try (handler request)
+         (catch Exception e
+           ;; TODO send to log
+           {:status 500 :body "Exception caught"}))))
+
 (def app (-> handler
+             wrap-exception
              wrap-json-response
              (wrap-json-body {:keywords? true :bigdecimals? true})))

@@ -15,6 +15,10 @@
                    :gender {:male "Male" :female "Female"}
                    :birthday "Birthday"
                    :address "Address"
-                   :insurance "Insurance number"}})
+                   :insurance "Insurance number"}
+         :validation {:patient {:gender {:required "Select gender"
+                                         :wrong-value "Wrong value"}
+                                :insurance {:required "Please fill insurance"
+                                            :wrong-number "Wrong insurance number"}}}})
 
 (def tr (partial tempura/tr {:dict {:en en}} [:en]))

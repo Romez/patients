@@ -1,14 +1,14 @@
 (ns patients.core
-    (:require
-      [reagent.core :as r]
-      [reagent.dom :as d]
-      [ajax.core :refer [GET POST DELETE PATCH]]
-      [clojure.string :refer [join split]]
-      [reagent-forms.core :refer [bind-fields]]
-      [reagent-modals.modals :as reagent-modals]
+  (:require
+   [reagent.core :as r]
+   [reagent.dom :as d]
+   [ajax.core :refer [GET POST DELETE PATCH]]
+   [clojure.string :refer [join split]]
+   [reagent-modals.modals :as reagent-modals]
 
-      [patients.routes :refer [get-patients-path get-patient-path]]
-      [patients.i18n :refer [tr]]))
+   [patients.routes :refer [get-patients-path get-patient-path]]
+   [patients.validation :as validation]
+   [patients.i18n :refer [tr]]))
 
 (def store (r/atom {:patients {}}))
 
@@ -18,17 +18,22 @@
                             :response-format :json
                             :keywords? true}))
 
-(defn handle-create [form-state]
+(defn handle-create [form-state errors]
   (fn [e]
     (.preventDefault e)
-    (let [patient (update @form-state :birthday #(join "-" (vec (vals %))))
-          data {:data {:attributes patient}}]
+    (let [data {:data {:attributes @form-state}}]
       (POST (get-patients-path) {:format :json
                                  :params data
                                  :handler (fn [{{id :id attributes :attributes} :data}]
                                             (reagent-modals/close-modal!)
                                             (swap! store update :patients #(assoc % id attributes)))
-                                 :error-handler (fn [error] (js/console.log "error" error))
+                                 :error-handler (fn [{:keys [status response] :as error}]
+                                                  (cond (= status 422) (let [result (reduce
+                                                                                     (fn [acc [k v]] (assoc acc k (join ", " v)))
+                                                                                     {}
+                                                                                     (:errors response))]
+                                                                         (reset! errors result))
+                                                        :else (js/console.error error)))
                                  :response-format :json
                                  :keywords? true}))))
 
@@ -39,117 +44,135 @@
                                               (reagent-modals/close-modal!)
                                               (swap! store update :patients #(dissoc % id)))})))
 
-(defn handle-update [id form-state]
+(defn handle-update [id form-state errors]
   (fn [e]
     (.preventDefault e)
-    (let [patient (update @form-state :birthday #(->> % vals vec (join "-")))
-          data {:data {:attributes patient}}]
+    (let [data {:data {:attributes @form-state}}]
       (PATCH (get-patient-path id) {:format :json
                                     :params data
                                     :handler (fn []
-                                               (reagent-modals/close-modal!)
-                                               (swap! store update :patients #(assoc % id patient)))
-                                    :error-handler (fn [error] (js/console.log "error" (str error)))}))))
+                                               (swap! store update :patients #(assoc % id @form-state))
+                                               (reagent-modals/close-modal!))
+                                    :error-handler (fn [{:keys [status response] :as error}]
+                                                     (cond (= status 422) (let [result (reduce
+                                                                                        (fn [acc [k v]] (assoc acc k (join ", " v)))
+                                                                                        {}
+                                                                                        (:errors response))]
+                                                                            (reset! errors result))
+                                                           :else (js/console.error error)))}))))
+
+(defn input [form-state errors key label]
+  [:div.form-group
+   [:label {:for key} label]
+   [:input.form-control {:field :text
+                         :class (when (not (nil? (key @errors))) "is-invalid")
+                         :id key
+                         :value (key @form-state)
+                         :on-change #(swap! form-state assoc key (-> % .-target .-value))}]
+   [:div.invalid-feedback (key @errors)]])
+
+(defn radio [form-state errors name value label]
+  [:div.form-check
+   [:input.form-check-input {:type :radio
+                             :required true
+                             :class (when (not (nil? (name @errors))) "is-invalid")
+                             :checked (= value (keyword (name @form-state)))
+                             :on-change #(swap! form-state assoc name value)
+                             :name name
+                             :id value}]
+   [:label.form-check-label {:for value} label]])
+
+(defn datepicker [form-state errors key label]
+  [:div.form-group
+   [:label {:for :birthday} label]
+   [:input.form-control {:type :date
+                         :class (when (not (nil? (key @errors))) "is-invalid")
+                         :id key
+                         :value (key @form-state)
+                         :on-change #(swap! form-state assoc key (-> % .-target .-value))}]
+   [:div.invalid-feedback (key @errors)]])
 
 (defn create-form []
-  (let [form-state (r/atom {:full_name ""
-                            :gender nil
-                            :birthday {:year 1989 :month 1 :day 1}
-                            :address ""
-                            :insurance nil})]
-    [:form {:on-submit (handle-create form-state)}
-     [:div.modal-header [:div.h5.modal-title (tr [:modals.create/title])]]
-      [:div.modal-body
-       [bind-fields
-        [:<>
-         [:div.form-group [:label (tr [:patient/full-name]) [:input.form-control {:field :text :id :full_name}]]]
-         [:div.form-group
-          [:div.form-check [:label
-                            [:input.form-check-input {:field :radio :value :male :name :gender}]
-                            (tr [:patient.gender/male])]]
-          [:div.form-check [:label
-                            [:input.form-check-input {:field :radio :value :female :name :gender}]
-                            (tr [:patient.gender/female])]]]
-         [:div.form-group [:label
-                           (tr [:patient/birthday])
-                           [:div {:field :datepicker :id :birthday }]]]
-         [:div.form-group [:label
-                           (tr [:patient/address])
-                           [:input.form-control {:field :text :id :address}]]]
-         [:div.form-group [:label
-                           (tr [:patient/insurance])
-                           [:input.form-control {:field :numeric :id :insurance}]]]]
-        form-state]]
-      [:div.modal-footer
-       [:button.btn.btn-secondary {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
-       [:button.btn.btn-success {:type "submit"} (tr [:modals.create/submit])]]]))
+  (let [form-state (r/atom {:full_name "" :gender nil :birthday "" :address "" :insurance ""})
+        errors (r/atom {})]
+    (fn []
+      [:form.needs-validation {:noValidate true
+                               :class (when (not (empty? @errors)) "was-invalidated")
+                               :on-submit (handle-create form-state errors)}
+       [:div.modal-header [:div.h5.modal-title (tr [:modals.create/title])]]
+       [:div.modal-body
+        [input form-state errors :full_name (tr [:patient/full-name])]
+        [:div.form-group
+         [radio form-state errors :gender :male (tr [:patient.gender/male])]
+         [radio form-state errors :gender :female (tr [:patient.gender/female])]]
+        [datepicker form-state errors :birthday (tr [:patient/birthday])]
+        (input form-state errors :address (tr [:patient/address]))
+        (input form-state errors :insurance (tr [:patient/insurance]))]
+       [:div.modal-footer
+        [:button.btn.btn-secondary
+         {:type "button" :on-click #(reagent-modals/close-modal!)}
+         (tr [:close])]
+        [:button.btn.btn-success
+         {:type "submit"}
+         (tr [:modals.create/submit])]]])))
 
 (defn update-form [id]
-  (let [patient (update (get-in @store [:patients id]) :birthday #(zipmap [:year :month :day] (map int (split % #"-"))))
-        form-state (r/atom patient)]
-    [:form {:on-submit (handle-update id form-state)}
-     [:div.modal-header [:h5.modal-title (tr [:modals.update/title])]]
-     [:div.modal-body
-      [bind-fields
-       [:<>
-        [:div.form-group [:label
-                          (tr [:patient/full-name])
-                          [:input.form-control {:field :text :id :full_name}]]]
+  (let [form-state (r/atom (get-in @store [:patients id]))
+        errors (r/atom {})]
+    (fn []
+      [:form {:noValidate true
+              :class (when (not (empty? @errors)) "was-invalidated")
+              :on-submit (handle-update id form-state errors)}
+       [:div.modal-header [:h5.modal-title (tr [:modals.update/title])]]
+       [:div.modal-body
+        [input form-state errors :full_name (tr [:patient/full-name])]
         [:div.form-group
-         [:div.form-check [:label
-                           [:input.form-check-input {:field :radio :value :male :name :gender}]
-                           (tr [:patient.gender/male])]]
-         [:div.form-check [:label
-                           [:input.form-check-input {:field :radio :value :female :name :gender}]
-                           (tr [:patient.gender/female])]]]
-        [:div.form-group [:label
-                          (tr [:patient/birthday])
-                          [:div {:field :datepicker :id :birthday }]]]
-        [:div.form-group [:label
-                          (tr [:patient/address])
-                          [:input.form-control {:field :text :id :address}]]]
-        [:div.form-group [:label
-                          (tr [:patient/insurance])
-                          [:input.form-control {:field :numeric :id :insurance}]]]]
-       form-state]]
-     [:div.modal-footer
-      [:button.btn.btn-secondary {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
-      [:button.btn.btn-success {:type "submit"} (tr [:modals.update/submit])]]]))
+         [radio form-state errors :gender :male (tr [:patient.gender/male])]
+         [radio form-state errors :gender :female (tr [:patient.gender/female])]]
+        [datepicker form-state errors :birthday (tr [:patient/birthday])]
+        (input form-state errors :address (tr [:patient/address]))
+        (input form-state errors :insurance (tr [:patient/insurance]))]
+       [:div.modal-footer
+        [:button.btn.btn-secondary
+         {:type "button" :on-click #(reagent-modals/close-modal!)}
+         (tr [:close])]
+        [:button.btn.btn-success
+         {:type "submit"}
+         (tr [:modals.update/submit])]]])))
 
 (defn delete-form [id]
-  [:form {:on-submit (handle-delete id)}
-   [:div.modal-header [:h5.modal-title (tr [:modals.delete/title])]]
-   [:div.modal-body
-    [:p.h2 (tr [:modals.delete/question])]
-    [:div.d-flex.justify-content-between
-     [:button.btn.btn-secondary.mr-2 {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
-     [:button.btn.btn-danger {:type "submit"} (tr [:modals.delete/submit])]]]])
+[:form {:on-submit (handle-delete id)}
+ [:div.modal-header [:h5.modal-title (tr [:modals.delete/title])]]
+ [:div.modal-body
+  [:p.h2 (tr [:modals.delete/question])]
+  [:div.d-flex.justify-content-between
+   [:button.btn.btn-secondary.mr-2 {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
+   [:button.btn.btn-danger {:type "submit"} (tr [:modals.delete/submit])]]]])
 
 (defn Patients [patients]
-  [:ul.list-group
-   (for [[id attributes] patients]
-     ^{:key id} [:li.list-group-item.d-flex.justify-content-between.align-items-center
-                            (:full_name attributes)
-                            [:div
-                             [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle
-                              {:on-click #(reagent-modals/modal! [update-form id])}]
-                             [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.ml-2.rounded-circle
-                              {:on-click #(reagent-modals/modal! [delete-form id])}]]]
-     )])
+[:ul.list-group
+ (for [[id attributes] patients]
+   ^{:key id} [:li.list-group-item.d-flex.justify-content-between.align-items-center
+               (:full_name attributes)
+               [:div
+                [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle
+                 {:on-click #(reagent-modals/modal! [update-form id])}]
+                [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.ml-2.rounded-circle
+                 {:on-click #(reagent-modals/modal! [delete-form id])}]]])])
 
 (defn App []
-  [:div {:class "container"}
-   [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
-    [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
-   [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
-   [Patients (:patients @store)]
-   [reagent-modals/modal-window]])
+[:div {:class "container"}
+ [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
+  [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
+ [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
+ [Patients (:patients @store)]
+ [reagent-modals/modal-window]])
 
 (defn init! []
-  (fetch-patients
-   (fn [response]
-     (let [patients (reduce #(assoc % (:id %2) (:attributes %2)) {} (:data response))]
-       (swap! store assoc :patients patients)))
+(fetch-patients
+ (fn [response]
+   (let [patients (reduce #(assoc % (:id %2) (:attributes %2)) {} (:data response))]
+     (swap! store assoc :patients patients)))
 
-   #(js/console.log "ERROR"))
-  (d/render [App] (.getElementById js/document "app")))
+ #(js/console.log "ERROR"))
+(d/render [App] (.getElementById js/document "app")))

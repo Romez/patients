@@ -18,10 +18,11 @@
                  [ring/ring-json "0.5.0"]
                  [org.clojure/data.json "1.0.0"]
                  [clj-time "0.15.2"]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]
                  [cljs-ajax "0.7.5"]
-                 [reagent-forms "0.5.23"]
                  [org.clojars.frozenlock/reagent-modals "0.2.3"]
-                 [com.taoensso/tempura "1.2.1"]]
+                 [com.taoensso/tempura "1.2.1"]
+                 [bouncer "1.0.1"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]

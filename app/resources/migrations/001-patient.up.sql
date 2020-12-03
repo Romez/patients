@@ -1,11 +1,9 @@
-CREATE TYPE gender AS ENUM (
-  'male', 'female'
-);
+CREATE TYPE gender AS ENUM ('male', 'female');
 
 CREATE table patient (
   id SERIAL PRIMARY KEY,
-  full_name VARCHAR,
-  gender gender,
-  birthday date,
+  full_name VARCHAR NOT NULL,
+  gender gender NOT NULL,
+  birthday date NOT NULL,
   address VARCHAR,
-  insurance int);
+  insurance CHAR(16) NOT NULL);
