@@ -1,4 +1,5 @@
 (ns patients.core
+  (:require-macros [secretary.core :refer [defroute]])
   (:require
    [reagent.core :as r]
    [reagent.dom :as d]
@@ -7,58 +8,88 @@
    [reagent-modals.modals :as reagent-modals]
    [patients.routes :refer [get-patients-path get-patient-path]]
    [patients.validation :as validation]
-   [patients.i18n :refer [tr]]))
+   [patients.i18n :refer [tr]]
+   [secretary.core :as secretary]
+   [accountant.core :as accountant]))
 
-(def store (r/atom {:patients {}}))
+(def store (r/atom {:patients {:byId {} :allIds []}
+                    :query-params {}
+                    :page {:last-page 1
+                           :total 0}}))
 
-(defn fetch-patients [handle-success handle-error]
-  (GET (get-patients-path) {:handler handle-success
-                            :error-handler handle-error
-                            :response-format :json
-                            :keywords? true}))
+(defn fetch-patients []
+  (let [qp (select-keys (:query-params @store ) [:page :per-page])]
+    (GET (get-patients-path qp)
+         {:handler (fn [{:keys [data meta]}]
+                     (let [patients (reduce (fn [{allIds :allIds byId :byId} item]
+                                              {:byId (assoc byId (:id item) (:attributes item))
+                                               :allIds (conj allIds (:id item))})
+                                            {:byId {} :allIds []}
+                                            data)
+                           {:keys [last-page total]} (:page meta)]
+                       (swap! store assoc
+                              :patients patients
+                              :page {:last-page (js/parseInt last-page)
+                                     :total (js/parseInt total)})))
+          :error-handler (fn [error]
+                           ;; TODO handle error
+                           (js/console.error (str error)))
+          :response-format :json
+          :keywords? true})))
+
+(defroute home-path "/" [_ query-params]
+  (swap! store assoc :query-params query-params)
+  (fetch-patients))
 
 (defn handle-create [form-state errors]
   (fn [e]
     (.preventDefault e)
     (let [data {:data {:attributes @form-state}}]
-      (POST (get-patients-path) {:format :json
-                                 :params data
-                                 :handler (fn [{{id :id attributes :attributes} :data}]
-                                            (swap! store update :patients #(assoc % id attributes))
-                                            (reagent-modals/close-modal!))
-                                 :error-handler (fn [{:keys [status response] :as error}]
-                                                  (cond (= status 422) (let [result (reduce
-                                                                                     (fn [acc [k v]] (assoc acc k (join ", " v)))
-                                                                                     {}
-                                                                                     (:errors response))]
-                                                                         (reset! errors result))
-                                                        :else (js/console.error error)))
-                                 :response-format :json
-                                 :keywords? true}))))
+      (POST (get-patients-path {})
+            {:params data
+             :handler (fn []
+                        (reagent-modals/close-modal!)
+                        (fetch-patients))
+             :error-handler (fn [{:keys [status response] :as error}]
+                              (if (= status 422)
+                                (let [result (reduce
+                                              (fn [acc [k v]] (assoc acc k (join ", " v)))
+                                              {}
+                                              (:errors response))]
+                                  (reset! errors result))
+                                (js/console.error error)))
+             :format :json
+             :response-format :json
+             :keywords? true}))))
 
 (defn handle-delete [id]
   (fn [e]
     (.preventDefault e)
     (DELETE (get-patient-path id) {:handler (fn []
                                               (reagent-modals/close-modal!)
-                                              (swap! store update :patients #(dissoc % id)))})))
+                                              (fetch-patients))
+                                   :error-handler (fn [error]
+                                                    ;; TODO handle error
+                                                    (js/console.error (str error)))})))
 
 (defn handle-update [id form-state errors]
   (fn [e]
     (.preventDefault e)
     (let [data {:data {:attributes @form-state}}]
-      (PATCH (get-patient-path id) {:format :json
-                                    :params data
-                                    :handler (fn []
-                                               (swap! store update :patients #(assoc % id @form-state))
-                                               (reagent-modals/close-modal!))
-                                    :error-handler (fn [{:keys [status response] :as error}]
-                                                     (cond (= status 422) (let [result (reduce
-                                                                                        (fn [acc [k v]] (assoc acc k (join ", " v)))
-                                                                                        {}
-                                                                                        (:errors response))]
-                                                                            (reset! errors result))
-                                                           :else (js/console.error error)))}))))
+      (PATCH (get-patient-path id)
+             {:format :json
+              :params data
+              :handler (fn []
+                         (swap! store assoc-in [:patients :byId id] @form-state)
+                         (reagent-modals/close-modal!))
+              :error-handler (fn [{:keys [status response] :as error}]
+                               (if (= status 422)
+                                 (let [result (reduce
+                                               (fn [acc [k v]] (assoc acc k (join ", " v)))
+                                               {}
+                                               (:errors response))]
+                                   (reset! errors result))
+                                 (js/console.error error)))}))))
 
 (defn input [form-state errors key label]
   [:div.form-group
@@ -116,7 +147,7 @@
          (tr [:modals.create/submit])]]])))
 
 (defn update-form [id]
-  (let [form-state (r/atom (get-in @store [:patients id]))
+  (let [form-state (r/atom (get-in @store [:patients :byId id]))
         errors (r/atom {})]
     (fn []
       [:form {:noValidate true
@@ -140,16 +171,16 @@
          (tr [:modals.update/submit])]]])))
 
 (defn delete-form [id]
-[:form {:on-submit (handle-delete id)}
- [:div.modal-header [:h5.modal-title (tr [:modals.delete/title])]]
- [:div.modal-body
-  [:p.h2 (tr [:modals.delete/question])]
-  [:div.d-flex.justify-content-between
-   [:button.btn.btn-secondary.mr-2 {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
-   [:button.btn.btn-danger {:type "submit"} (tr [:modals.delete/submit])]]]])
+  [:form {:on-submit (handle-delete id)}
+   [:div.modal-header [:h5.modal-title (tr [:modals.delete/title])]]
+   [:div.modal-body
+    [:p.h2 (tr [:modals.delete/question])]
+    [:div.d-flex.justify-content-between
+     [:button.btn.btn-secondary.mr-2 {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
+     [:button.btn.btn-danger {:type "submit"} (tr [:modals.delete/submit])]]]])
 
 (defn view [id]
-  (let [patient (get-in @store [:patients id])]
+  (let [patient (get-in @store [:patients :byId id])]
     [:<>
      [:div.modal-header [:h5.modal-title (tr [:modals.view/title])]]
      [:div.modal-body
@@ -163,39 +194,66 @@
        {:type "button" :on-click #(reagent-modals/close-modal!)}
        (tr [:close])]]]))
 
-(defn Patients [patients]
-[:table.table
- [:thead
+(defn Patients [patients total]
+  [:table.table
+   [:caption (tr [:total] [total])]
+   [:thead
   [:tr
    [:th (tr [:patient/full-name])]
    [:th (tr [:patient/insurance])]
    [:th (tr [:actions])]]]
  [:tbody
-  (for [[id attributes] patients]
-    ^{:key id} [:tr
-                [:td (:full_name attributes)]
-                [:td (:insurance attributes)]
-                [:td
-                 [:button.btn.btn-sm.btn-outline-success.fas.fa-eye.rounded-circle.mr-2
-                  {:on-click #(reagent-modals/modal! [view id])}]
-                 [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle.mr-2
-                  {:on-click #(reagent-modals/modal! [update-form id])}]
-                 [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.rounded-circle
-                  {:on-click #(reagent-modals/modal! [delete-form id])}]]])]])
+  (doall
+   (map (fn [{:keys [id full_name insurance]}]
+          ^{:key id} [:tr
+                      [:td full_name]
+                      [:td insurance]
+                      [:td
+                        [:button.btn.btn-sm.btn-outline-info.fas.fa-eye.rounded-circle.mr-2
+                        {:on-click #(reagent-modals/modal! [view id])}]
+                        [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle.mr-2
+                        {:on-click #(reagent-modals/modal! [update-form id])}]
+                        [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.rounded-circle
+                         {:on-click #(reagent-modals/modal! [delete-form id])}]]]
+          ) patients))]])
+
+(defn Pagination [last-page current-page qp]
+  [:nav
+   [:ul.pagination
+    [:li.page-item
+     {:class (when (= current-page 1) "disabled")}
+       [:a.page-link
+        {:href (home-path {:query-params (assoc qp :page (dec current-page))})}
+        "<<"]]
+    (for [page (range 1 (inc last-page))]
+      ^{:key page}
+        [:li.page-item
+         {:class (when (= page current-page) "active")}
+         [:a.page-link {:href (home-path {:query-params (assoc qp :page page)})}
+          page]])
+    [:li.page-item
+       {:class (when (= current-page last-page) "disabled")}
+       [:a.page-link
+        {:href (home-path {:query-params (assoc qp :page (inc current-page))})}
+        ">>"]]]])
 
 (defn App []
-[:div {:class "container"}
- [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
-  [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
- [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
- [Patients (:patients @store)]
- [reagent-modals/modal-window]])
+  (let [patients (map #(get-in @store [:patients :byId %]) (-> @store :patients :allIds))
+        last-page (-> @store :page :last-page)
+        current-page (-> @store :query-params :page (js/parseInt))
+        total (-> @store :page :total)
+        qp (:query-params @store)]
+    [:div {:class "container"}
+            [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
+             [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
+            [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
+            [Patients patients total]
+            [Pagination last-page current-page qp]
+            [reagent-modals/modal-window]]))
 
 (defn init! []
-(fetch-patients
- (fn [response]
-   (let [patients (reduce #(assoc % (:id %2) (:attributes %2)) {} (:data response))]
-     (swap! store assoc :patients patients)))
-
- #(js/console.log "ERROR"))
-(d/render [App] (.getElementById js/document "app")))
+  (accountant/configure-navigation!
+   {:nav-handler (fn [path] (secretary/dispatch! path))
+    :path-exists?  (fn [path] (secretary/locate-route path))})
+  (accountant/dispatch-current!)
+  (d/render [App] (.getElementById js/document "app")))

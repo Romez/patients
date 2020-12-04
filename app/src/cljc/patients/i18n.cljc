@@ -5,6 +5,7 @@
          :create "Create patient"
          :close "Close"
          :actions "Actions"
+         :total "Total: %1"
          :modals {:create {:title "Create patient"
                            :submit "Create"}
                   :update {:title "Update patient"

@@ -45,14 +45,15 @@
                      :address "Moscow"
                      :insurance "1234567890123456"}]
           _ (insert patient (values patients))
-          {:keys [status body]} (app (mock/request :get "/api/v1/patients"))
+          {:keys [status body]} (app (mock/request :get "/api/v1/patients?page=1&per-page=2&sort=desc"))
           result (->> (json/read-str body :key-fn keyword)
                       :data
                       (map #(:attributes %))
+                      (map #(dissoc % :id))
                       (map #(update % :birthday format/parse)))]
 
       (is (= 200 status))
-      (is (= patients result)))))
+      (is (= (reverse patients) result)))))
 
 (deftest test-create-patient
   (testing "create patient"

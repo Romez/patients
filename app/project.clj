@@ -22,7 +22,9 @@
                  [cljs-ajax "0.7.5"]
                  [org.clojars.frozenlock/reagent-modals "0.2.3"]
                  [com.taoensso/tempura "1.2.1"]
-                 [bouncer "1.0.1"]]
+                 [bouncer "1.0.1"]
+                 [clj-commons/secretary "1.2.4"]
+                 [venantius/accountant "0.2.5"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]

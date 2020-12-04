@@ -5,6 +5,8 @@
    [environ.core :refer [env]]
    [clj-time.jdbc]
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
+   [ring.middleware.params :refer [wrap-params]]
+   [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.util.response :refer [response status]]
    [korma.core :as korma]
    [patients.validation :refer [validate-patient]]
@@ -27,7 +29,6 @@
     (include-js "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js")
     (include-js "/js/app.js")]))
 
-
 (defdb db (postgres {:host (:db-host env)
                      :port (:db-port env)
                      :db (:db-name env)
@@ -40,13 +41,24 @@
 (defroutes handler
   (GET "/" [] (page))
   (context "/api/v1/patients" []
-           (GET "/" [] (let [result
-                             {:data (map (fn [record] {:id (:id record)
-                                                  :attributes (-> record
-                                                                  (dissoc :id)
-                                                                  (update :birthday unparse-date))})
-                                                (korma/select patient))}]
-                         (response result)))
+           (GET "/" request (let [per-page (Integer/parseInt (get-in request [:params :per-page] "10"))
+                                  current-page (Integer/parseInt (get-in request [:params :page] "1"))
+                                  sort (keyword (get-in request [:params :sort] "desc"))
+                                  total (-> (korma/select patient (korma/aggregate (count :*) :count))
+                                            first
+                                            :count)
+                                  last-page (-> total (/ per-page) Math/ceil int)
+                                  data (->> (korma/select patient
+                                                          (korma/order :id sort)
+                                                          (korma/limit per-page)
+                                                          (korma/offset (* per-page (dec current-page))))
+                                            (map (fn [r] {:id (:id r)
+                                                     :attributes (update r :birthday unparse-date)})))]
+                         (response {:meta {:page {:last-page last-page
+                                                  :current-page current-page
+                                                  :per-page per-page
+                                                  :total total}}
+                                    :data data})))
 
            (POST "/" request (let [{:keys [body]} request
                                    [errors data] (validate-patient (-> body :data :attributes))]
@@ -82,5 +94,7 @@
 
 (def app (-> handler
              wrap-exception
+             (wrap-json-body {:keywords? true :bigdecimals? true})
              wrap-json-response
-             (wrap-json-body {:keywords? true :bigdecimals? true})))
+             wrap-keyword-params
+             wrap-params))
