@@ -161,21 +161,27 @@
        [:li.list-group-item [:strong (tr [:patient/insurance])": "] (:insurance patient)]]
       [:button.btn.btn-secondary
        {:type "button" :on-click #(reagent-modals/close-modal!)}
-       (tr [:close])]]]
-    ))
+       (tr [:close])]]]))
 
 (defn Patients [patients]
-[:ul.list-group
- (for [[id attributes] patients]
-   ^{:key id} [:li.list-group-item.d-flex.justify-content-between.align-items-center
-               (:full_name attributes)
-               [:div
-                [:button.btn.btn-sm.btn-outline-success.fas.fa-eye.rounded-circle.mr-2
-                 {:on-click #(reagent-modals/modal! [view id])}]
-                [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle.mr-2
-                 {:on-click #(reagent-modals/modal! [update-form id])}]
-                [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.rounded-circle
-                 {:on-click #(reagent-modals/modal! [delete-form id])}]]])])
+[:table.table
+ [:thead
+  [:tr
+   [:th (tr [:patient/full-name])]
+   [:th (tr [:patient/insurance])]
+   [:th (tr [:actions])]]]
+ [:tbody
+  (for [[id attributes] patients]
+    ^{:key id} [:tr
+                [:td (:full_name attributes)]
+                [:td (:insurance attributes)]
+                [:td
+                 [:button.btn.btn-sm.btn-outline-success.fas.fa-eye.rounded-circle.mr-2
+                  {:on-click #(reagent-modals/modal! [view id])}]
+                 [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle.mr-2
+                  {:on-click #(reagent-modals/modal! [update-form id])}]
+                 [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.rounded-circle
+                  {:on-click #(reagent-modals/modal! [delete-form id])}]]])]])
 
 (defn App []
 [:div {:class "container"}

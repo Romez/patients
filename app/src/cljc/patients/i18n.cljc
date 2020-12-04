@@ -4,6 +4,7 @@
 (def en {:brand "Patients"
          :create "Create patient"
          :close "Close"
+         :actions "Actions"
          :modals {:create {:title "Create patient"
                            :submit "Create"}
                   :update {:title "Update patient"
