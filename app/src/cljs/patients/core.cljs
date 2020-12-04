@@ -5,7 +5,6 @@
    [ajax.core :refer [GET POST DELETE PATCH]]
    [clojure.string :refer [join split]]
    [reagent-modals.modals :as reagent-modals]
-
    [patients.routes :refer [get-patients-path get-patient-path]]
    [patients.validation :as validation]
    [patients.i18n :refer [tr]]))
@@ -25,8 +24,8 @@
       (POST (get-patients-path) {:format :json
                                  :params data
                                  :handler (fn [{{id :id attributes :attributes} :data}]
-                                            (reagent-modals/close-modal!)
-                                            (swap! store update :patients #(assoc % id attributes)))
+                                            (swap! store update :patients #(assoc % id attributes))
+                                            (reagent-modals/close-modal!))
                                  :error-handler (fn [{:keys [status response] :as error}]
                                                   (cond (= status 422) (let [result (reduce
                                                                                      (fn [acc [k v]] (assoc acc k (join ", " v)))
@@ -103,8 +102,8 @@
        [:div.modal-body
         [input form-state errors :full_name (tr [:patient/full-name])]
         [:div.form-group
-         [radio form-state errors :gender :male (tr [:patient.gender/male])]
-         [radio form-state errors :gender :female (tr [:patient.gender/female])]]
+         [radio form-state errors :gender :male (tr [:patient.genders/male])]
+         [radio form-state errors :gender :female (tr [:patient.genders/female])]]
         [datepicker form-state errors :birthday (tr [:patient/birthday])]
         (input form-state errors :address (tr [:patient/address]))
         (input form-state errors :insurance (tr [:patient/insurance]))]
@@ -127,8 +126,8 @@
        [:div.modal-body
         [input form-state errors :full_name (tr [:patient/full-name])]
         [:div.form-group
-         [radio form-state errors :gender :male (tr [:patient.gender/male])]
-         [radio form-state errors :gender :female (tr [:patient.gender/female])]]
+         [radio form-state errors :gender :male (tr [:patient.genders/male])]
+         [radio form-state errors :gender :female (tr [:patient.genders/female])]]
         [datepicker form-state errors :birthday (tr [:patient/birthday])]
         (input form-state errors :address (tr [:patient/address]))
         (input form-state errors :insurance (tr [:patient/insurance]))]
@@ -149,15 +148,33 @@
    [:button.btn.btn-secondary.mr-2 {:type "button" :on-click #(reagent-modals/close-modal!)} (tr [:close])]
    [:button.btn.btn-danger {:type "submit"} (tr [:modals.delete/submit])]]]])
 
+(defn view [id]
+  (let [patient (get-in @store [:patients id])]
+    [:<>
+     [:div.modal-header [:h5.modal-title (tr [:modals.view/title])]]
+     [:div.modal-body
+      [:ul.list-group.list-group-flush
+       [:li.list-group-item [:strong (tr [:patient/full-name])": "] (:full_name patient)]
+       [:li.list-group-item [:strong (tr [:patient/gender])": "] (:gender patient)]
+       [:li.list-group-item [:strong (tr [:patient/birthday])": "] (:birthday patient)]
+       [:li.list-group-item [:strong (tr [:patient/address])": "] (:address patient)]
+       [:li.list-group-item [:strong (tr [:patient/insurance])": "] (:insurance patient)]]
+      [:button.btn.btn-secondary
+       {:type "button" :on-click #(reagent-modals/close-modal!)}
+       (tr [:close])]]]
+    ))
+
 (defn Patients [patients]
 [:ul.list-group
  (for [[id attributes] patients]
    ^{:key id} [:li.list-group-item.d-flex.justify-content-between.align-items-center
                (:full_name attributes)
                [:div
-                [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle
+                [:button.btn.btn-sm.btn-outline-success.fas.fa-eye.rounded-circle.mr-2
+                 {:on-click #(reagent-modals/modal! [view id])}]
+                [:button.btn.btn-sm.btn-outline-success.fas.fa-edit.rounded-circle.mr-2
                  {:on-click #(reagent-modals/modal! [update-form id])}]
-                [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.ml-2.rounded-circle
+                [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.rounded-circle
                  {:on-click #(reagent-modals/modal! [delete-form id])}]]])])
 
 (defn App []

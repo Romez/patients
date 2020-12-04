@@ -10,9 +10,11 @@
                            :submit "Update"}
                   :delete {:title "Delete patient"
                            :submit "Delete"
-                           :question "Are you sure?"}}
+                           :question "Are you sure?"}
+                  :view {:title "View patient"}}
          :patient {:full-name "Full name"
-                   :gender {:male "Male" :female "Female"}
+                   :gender "Gender"
+                   :genders {:male "Male" :female "Female"}
                    :birthday "Birthday"
                    :address "Address"
                    :insurance "Insurance number"}
