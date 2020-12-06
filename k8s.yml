@@ -1,0 +1,109 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patients-deployment
+spec:
+  selector:
+    matchLabels:
+      app: patients
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: patients
+    spec:
+      containers:
+        - name: patients
+          image: romezzz/patients
+          imagePullPolicy: Always
+          command: ["/bin/sh"]
+          args: ["-c", "java -jar target/app.jar"]
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: db-host
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: db-name
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: db-password
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: db-port
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: db-user
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patients-load-balancer
+spec:
+  type: LoadBalancer
+  selector:
+    app: patients
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      name: http
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration
+spec:
+  template:
+    metadata:
+      name: migration
+      annotations:
+        "helm.sh/hook": pre-install,pre-upgrade
+    spec:
+      containers:
+      - name: migration
+        image: romezzz/patients
+        command: ["/bin/sh", "-c", "lein migrate"]
+        env:
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: db-host
+          - name: DB_NAME
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: db-name
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: db-password
+          - name: DB_PORT
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: db-port
+          - name: DB_USER
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: db-user
+      restartPolicy: Never
