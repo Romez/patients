@@ -6,8 +6,11 @@
          :close "Close"
          :actions "Actions"
          :total "Total: %1"
-         :modals {:create {:title "Create patient"
-                           :submit "Create"}
+         :loading "Loading"
+         :submit "Submit"
+         :modals {
+                  :create {:title "Create patient"
+                           :submit "create"}
                   :update {:title "Update patient"
                            :submit "Update"}
                   :delete {:title "Delete patient"
@@ -23,6 +26,6 @@
          :validation {:patient {:gender {:required "Select gender"
                                          :wrong-value "Wrong value"}
                                 :insurance {:required "Please fill insurance"
-                                            :wrong-number "Wrong insurance number"}}}})
+                                            :matches "Insurance number should be 16 numbers"}}}})
 
 (def tr (partial tempura/tr {:dict {:en en}} [:en]))
