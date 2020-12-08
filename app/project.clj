@@ -25,7 +25,9 @@
                  [bouncer "1.0.1"]
                  [clj-commons/secretary "1.2.4"]
                  [venantius/accountant "0.2.5"]
-                 [fork "2.2.5"]]
+                 [fork "2.2.5"]
+                 [cljsjs/sentry-browser "5.17.0-0"]
+                 [io.sentry/sentry-clj "3.1.134"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]
@@ -69,9 +71,9 @@
                :release {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
                          :compiler {:output-to "target/cljsbuild/public/js/app.js"
                                     :output-dir "target/cljsbuild/public/js/out"
-                                    :optimizations :advanced
                                     :infer-externs true
-                                    :pretty-print false}}}}
+                                    :pretty-print false
+                                    :optimizations :advanced}}}}
 
   :aliases {"package" ["do" "clean" ["cljsbuild" "once" "release"]]
             "migrate" ["run" "-m" "patients.migration/migrate"]
@@ -81,7 +83,9 @@
                    :dependencies [[binaryage/devtools "1.0.2"]
                                   [figwheel-sidecar "0.5.20"]
                                   [nrepl "0.7.0"]
-                                  [cider/piggieback "0.5.0"]]
+                                  [cider/piggieback "0.5.0"]
+                                  [clj-kondo "RELEASE"]]
+                   :aliases {"clj-kondo" ["run" "-m" "clj-kondo.main"]}
                    :env {:db-host "db"
                          :db-name "patients"
                          :db-user "roman"

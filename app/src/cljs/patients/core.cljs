@@ -5,18 +5,17 @@
    [reagent.dom :as d]
    [clojure.set :refer [intersection]]
    [ajax.core :refer [GET POST DELETE PATCH]]
-   [clojure.string :refer [join split]]
+   [clojure.string :refer [join]]
    [reagent-modals.modals :as reagent-modals]
    [secretary.core :as secretary]
    [accountant.core :as accountant]
    [fork.reagent :as fork]
    [patients.routes :refer [get-patients-path get-patient-path]]
-   [patients.validation :refer [validate-patient patient-schema]]
+   [patients.validation :refer [patient-schema]]
    [patients.i18n :refer [tr]]
    [bouncer.core :as b]))
 
-(def store (r/atom {:fetching-patients {:status :idle
-                                    :error nil}
+(def store (r/atom {:fetching-patients {:status :idle :error nil}
                     :patients {:byId {} :allIds []}
                     :query-params {}
                     :page {:last-page 1 :total 0}}))
@@ -42,9 +41,9 @@
                               :fetching-patients {:status :success :error nil})))
           :error-handler (fn [error]
                            (swap! store assoc :fetching-patients {:status :failure :error (:status-text error)})
-                           ;; TODO handle error
-                           (js/console.error (str error)))})))
+                           (throw (str error)))})))
 
+#_:clj-kondo/ignore
 (defroute home-path "/" [_ query-params]
   (swap! store assoc :query-params query-params)
   (fetch-patients))
@@ -62,9 +61,7 @@
                                                (fetch-patients))
                                     :error-handler (fn [error]
                                                      (swap! state fork/set-server-message path (:status-text error))
-                                                     (console.error (str error))
-                                                     ;;TODO send to error collector
-                                                     )}))}
+                                                     (throw (str error)))}))}
    (fn [{:keys [handle-submit
                 submitting?
                 on-submit-server-message]}]
@@ -115,7 +112,7 @@
                    on-submit-server-message]}]
         [:form {:id :patient-form
                 :noValidate true
-                :class (when (not (empty? errors)) "was-invalidated")
+                :class (when (not-empty errors) "was-invalidated")
                 :on-submit handle-submit}
           [:div.modal-header [:h5.modal-title title]]
           [:div.modal-body
@@ -220,9 +217,7 @@
                                  (swap! state fork/set-error path k (join ", " v)))
                                (do
                                  (swap! state fork/set-server-message path (:status-text error))
-                                 (js/console.error (str error))
-                                 ;;TODO send error to collector
-                                 )))}))))
+                                 (throw error))))}))))
 
 (defn update-form [id]
   (patient-form
@@ -244,9 +239,7 @@
                             (swap! state fork/set-error path k (join ", " v)))
                           (do
                             (swap! state fork/set-server-message path (:status-text error))
-                            (js/console.error (str error))
-                            ;;TODO send error to collector
-                            )))}))))
+                            (throw error))))}))))
 
 (defn view [id]
   (let [patient (get-in @store [:patients :byId id])]
@@ -317,18 +310,23 @@
         ">>"]]]])
 
 (defn App []
-  (let [patients (map #(get-in @store [:patients :byId %]) (-> @store :patients :allIds))
-        last-page (-> @store :page :last-page)
-        current-page (-> @store :query-params :page (js/parseInt))
-        total (-> @store :page :total)
-        qp (:query-params @store)]
-    [:div {:class "container"}
-            [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
-             [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
-            [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
-            [Patients patients total (:fetching-patients @store)]
-            [Pagination last-page current-page qp]
-            [reagent-modals/modal-window]]))
+  [:div {:class "container"}
+     [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
+      [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
+
+     [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
+
+     [Patients
+      (map #(get-in @store [:patients :byId %]) (-> @store :patients :allIds))
+      (-> @store :page :total)
+      (:fetching-patients @store)]
+
+     [Pagination
+      (-> @store :page :last-page)
+      (js/parseInt (or (-> @store :query-params :page) 1))
+      (:query-params @store)]
+
+     [reagent-modals/modal-window]])
 
 (defn init! []
   (accountant/configure-navigation!

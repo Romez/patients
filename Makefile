@@ -24,3 +24,6 @@ compose-rollback:
 
 test:
 	docker-compose run app lein test
+
+lint:
+	docker-compose run app lein clj-kondo --lint src

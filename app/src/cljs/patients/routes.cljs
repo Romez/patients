@@ -1,11 +1,12 @@
-(ns patients.routes)
+(ns patients.routes
+  (:require [clojure.string :refer [join]]))
 
 (def host "")
 
 (def prefix "/api/v1")
 
 (defn make-query-string [m]
-  (clojure.string/join "&" (for [[k v] m] (str (name k) "=" v))))
+  (join "&" (for [[k v] m] (str (name k) "=" v))))
 
 (defn get-patients-path [qp]
   (let [qs (make-query-string qp)]

@@ -1,6 +1,7 @@
 (ns patients.server
   (:require
    [compojure.route :as route]
+   [compojure.core :refer [defroutes GET POST PATCH DELETE context]]
    [hiccup.page :refer [html5 include-js include-css]]
    [environ.core :refer [env]]
    [clj-time.jdbc]
@@ -10,10 +11,11 @@
    [ring.util.response :refer [response status]]
    [korma.core :as korma]
    [patients.validation :refer [validate-patient]]
-   [clojure.spec.alpha :as s])
-  (:use compojure.core
-        [patients.utils :only (unparse-date)]
-        [korma.db :only (defdb postgres)]))
+   [patients.utils :refer [unparse-date]]
+   [korma.db :refer [defdb postgres]]
+   [sentry-clj.core :as sentry]))
+
+(sentry/init! (:sentry-dsn env ""))
 
 (defn page []
   (html5
@@ -29,13 +31,14 @@
     (include-js "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js")
     (include-js "/js/app.js")]))
 
+#_:clj-kondo/ignore
 (defdb db (postgres {:host (:db-host env)
                      :port (:db-port env)
                      :db (:db-name env)
                      :user (:db-user env)
                      :password (:db-password env)
                      :stringtype "unspecified"}))
-
+#_:clj-kondo/ignore
 (korma/defentity patient)
 
 (defroutes handler
@@ -44,7 +47,7 @@
            (GET "/" request (let [per-page (Integer/parseInt (get-in request [:params :per-page] "10"))
                                   current-page (Integer/parseInt (get-in request [:params :page] "1"))
                                   sort (keyword (get-in request [:params :sort] "desc"))
-                                  total (-> (korma/select patient (korma/aggregate (count :*) :count))
+                                  total (-> (korma/select patient (korma/aggregate (count [:*]) :count))
                                             first
                                             :count)
                                   last-page (-> total (/ per-page) Math/ceil int)
@@ -53,7 +56,7 @@
                                                           (korma/limit per-page)
                                                           (korma/offset (* per-page (dec current-page))))
                                             (map (fn [r] {:id (:id r)
-                                                     :attributes (update r :birthday unparse-date)})))]
+                                                          :attributes (update r :birthday unparse-date)})))]
                          (response {:meta {:page {:last-page last-page
                                                   :current-page current-page
                                                   :per-page per-page
@@ -73,7 +76,7 @@
                      {:status 204}
                      {:status 404}))
            (PATCH "/:id" {:keys [params body]}
-                  (let [[errors data] (validate-patient (-> body :data :attributes))]
+                  (let [[errors] (validate-patient (-> body :data :attributes))]
                     (if (not (nil? errors))
                        (-> (response {:errors errors}) (status 422))
                        (if (> (korma/update
@@ -89,7 +92,7 @@
   (fn [request]
     (try (handler request)
          (catch Exception e
-           ;; TODO send to log
+           (sentry/send-event {:throwable e})
            {:status 500 :body "Exception caught"}))))
 
 (def app (-> handler
