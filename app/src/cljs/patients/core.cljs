@@ -15,7 +15,7 @@
    [patients.i18n :refer [tr]]
    [bouncer.core :as b]))
 
-(def store (r/atom {:fetching-patients {:status :idle :error nil}
+(def store (r/atom {:fetchinn-patients {:status :idle :error nil}
                     :patients {:byId {} :allIds []}
                     :query-params {}
                     :page {:last-page 1 :total 0}}))
@@ -38,9 +38,11 @@
                               :patients patients
                               :page {:last-page (js/parseInt last-page)
                                      :total (js/parseInt total)}
-                              :fetching-patients {:status :success :error nil})))
+                              :fetching-patients {:status :success
+                                                  :error nil})))
           :error-handler (fn [error]
-                           (swap! store assoc :fetching-patients {:status :failure :error (:status-text error)})
+                           (swap! store assoc :fetching-patients {:status :failure
+                                                                  :error (:status-text error)})
                            (throw (str error)))})))
 
 #_:clj-kondo/ignore
@@ -93,13 +95,13 @@
                 :keywordize-keys true
                 :prevent-default? true
                 :validation (fn [data]
-                              (let [[errors] (b/validate data (select-keys patient-schema (vec (keys data))))
+                              (let [validation-schema (select-keys patient-schema (-> data keys vec))
+                                    [errors] (b/validate data validation-schema)
                                     client-errors (reduce (fn [acc [k v]] (assoc acc k (join ", " v))) {} errors)
                                     server-errors (get-in @state [path :server])]
 
                                 (doseq [key (intersection (set (keys data)) (set (keys server-errors)))]
                                   (swap! state update-in [:form :server] #(dissoc % key)))
-
                                 client-errors))
                 :initial-values initial-values
                 :on-submit handle-submit}
@@ -112,22 +114,21 @@
                    on-submit-server-message]}]
         [:form {:id :patient-form
                 :noValidate true
-                :class (when (not-empty errors) "was-invalidated")
                 :on-submit handle-submit}
-          [:div.modal-header [:h5.modal-title title]]
-          [:div.modal-body
+         [:div.modal-header [:h5.modal-title title]]
+         [:div.modal-body
           [:div.form-group
-            [:label {:for :full_name} (tr [:patient/full-name])]
-            [:input.form-control
+           [:label {:for :full_name} (tr [:patient/full-name])]
+           [:input.form-control
             {:id :full_name
-              :class (when (not (nil? (or (:full_name server-errors)
+             :class (when (not (nil? (or (:full_name server-errors)
                                           (:full_name errors)))) "is-invalid")
-              :name :full_name
-              :value (values :full_name)
-              :on-change handle-change}]
+             :name :full_name
+             :value (values :full_name)
+             :on-change handle-change}]
             [:div.invalid-feedback (or (:full_name errors)
                                       (:full_name server-errors))]]
-          [:div.form-group
+           [:div.form-group
             [:div.form-check
             [:input.form-check-input {:type :radio
                                       :required true
@@ -139,7 +140,7 @@
                                       :on-change handle-change
                                       :id :male}]
             [:label.form-check-label {:for :male} (tr [:patient.genders/male])]]
-            [:div.form-check
+           [:div.form-check
             [:input.form-check-input {:type :radio
                                       :required true
                                       :value "female"
@@ -227,13 +228,13 @@
      (swap! state fork/set-submitting path true)
      (PATCH (get-patient-path id)
       {:format :json
-        :keywords? true
-        :params {:data {:attributes values}}
-        :finally #(swap! state fork/set-submitting path false)
-        :handler (fn []
-                   (swap! store assoc-in [:patients :byId id] values)
-                   (reagent-modals/close-modal!))
-        :error-handler (fn [{:keys [status response] :as error}]
+       :keywords? true
+       :params {:data {:attributes values}}
+       :finally #(swap! state fork/set-submitting path false)
+       :handler (fn []
+                  (swap! store assoc-in [:patients :byId id] values)
+                  (reagent-modals/close-modal!))
+       :error-handler (fn [{:keys [status response] :as error}]
                         (if (= status 422)
                           (doseq [[k v] (:errors response)]
                             (swap! state fork/set-error path k (join ", " v)))

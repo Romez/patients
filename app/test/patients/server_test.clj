@@ -4,20 +4,18 @@
             [clj-time.jdbc]
             [clj-time.core :as time]
             [clj-time.format :as format]
-            [clojure.data.json :as json])
-  (:use [patients.server :only (app patient)]
-        [patients.migration :only (migrate)]
-        clojure.test
-        [korma.core :only (select insert values delete where)]))
+            [clojure.data.json :as json]
+            [korma.core :refer [select insert values where]]
+            [clojure.test :refer [deftest is testing use-fixtures]]
+            [patients.migration :refer [migrate]]
+            [patients.server :refer [app patient]]))
 
-(defn with-rollback
-  [fn]
+(defn with-rollback [fn]
   (db/transaction
    (fn)
    (db/rollback)))
 
-(defn fix-migrate
-  [fn]
+(defn fix-migrate [fn]
   (migrate)
   (fn))
 
@@ -88,7 +86,7 @@
     (let [{:keys [id]} (insert patient (values {:full_name "Vasya" :gender "male"
                                                 :birthday (time/date-time 1966 1 3)
                                                 :address "homeless" :insurance "1234567890123456"}))
-          {:keys [status body]} (app (-> (mock/request :patch (str "/api/v1/patients/" id))
+          {:keys [status]} (app (-> (mock/request :patch (str "/api/v1/patients/" id))
                                          (mock/json-body {:data {:attributes {:full_name "Maria"
                                                                               :gender "female"
                                                                               :birthday "1996-2-4"
