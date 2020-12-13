@@ -12,7 +12,6 @@
                  [hiccup "1.0.5"]
                  [ring/ring-mock "0.4.0"]
                  [environ "1.2.0"]
-                 [korma "0.4.3"]
                  [ragtime "0.8.0"]
                  [org.postgresql/postgresql "42.2.4"]
                  [ring/ring-json "0.5.0"]
@@ -27,7 +26,9 @@
                  [venantius/accountant "0.2.5"]
                  [fork "2.2.5"]
                  [cljsjs/sentry-browser "5.17.0-0"]
-                 [io.sentry/sentry-clj "3.1.134"]]
+                 [io.sentry/sentry-clj "3.1.134"]
+                 [seancorfield/next.jdbc "1.1.613"]
+                 [honeysql "1.0.444"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]
@@ -44,7 +45,7 @@
 
   :resource-paths ["resources" "target/cljsbuild"]
 
-  :ring {:handler patients.server/app}
+  :ring {:handler patients.server/init}
 
   :uberjar-name "app.jar"
 
@@ -54,7 +55,7 @@
              :nrepl-host       "0.0.0.0"
              :nrepl-middleware [cider.piggieback/wrap-cljs-repl]
              :css-dirs         ["resources/public/css"]
-             :ring-handler     patients.server/app}
+             :ring-handler     patients.server/init}
 
   :cljsbuild {:builds
               {:app {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
@@ -86,12 +87,12 @@
                                   [cider/piggieback "0.5.0"]
                                   [clj-kondo "RELEASE"]]
                    :aliases {"clj-kondo" ["run" "-m" "clj-kondo.main"]}
-                   :env {:db-host "db"
+                   :env {:db-host "localhost"
                          :db-name "patients"
                          :db-user "roman"
                          :db-port "5432"
                          :db-password "secret"}}
-             :test {:env {:db-host "db"
+             :test {:env {:db-host "localhost"
                           :db-name "patients_test"
                           :db-user "roman"
                           :db-port "5432"

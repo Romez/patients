@@ -1,4 +1,3 @@
-(ns patients.utils
-  (:require [clj-time.format :as format]))
+(ns patients.utils)
 
-(defn unparse-date [date] (format/unparse (format/formatters :date) date))
+(defn unparse-date [date] (.format (java.text.SimpleDateFormat. "yyyy-MM-dd") date))
