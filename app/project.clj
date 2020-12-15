@@ -28,7 +28,9 @@
                  [cljsjs/sentry-browser "5.17.0-0"]
                  [io.sentry/sentry-clj "3.1.134"]
                  [seancorfield/next.jdbc "1.1.613"]
-                 [honeysql "1.0.444"]]
+                 [honeysql "1.0.444"]
+                 [re-frame "1.1.2"]
+                 [day8.re-frame/http-fx "0.2.1"]]
 
   :plugins [[lein-cljsbuild "1.1.7"]
             [lein-figwheel "0.5.20"]
@@ -49,8 +51,7 @@
 
   :uberjar-name "app.jar"
 
-  :figwheel {
-             :http-server-root "public"
+  :figwheel {:http-server-root "public"
              :nrepl-port       7002
              :nrepl-host       "0.0.0.0"
              :nrepl-middleware [cider.piggieback/wrap-cljs-repl]
@@ -62,6 +63,8 @@
                      :watch-paths ["src"]
                      :figwheel {:on-jsload "patients.core/mount-root"}
                      :compiler {:main "patients.dev"
+                                :closure-defines {"re_frame.trace.trace_enabled_QMARK_" true}
+                                :preloads        [day8.re-frame-10x.preload]
                                 :recompile-dependents false
                                 :output-to "resources/public/js/app.js"
                                 :output-dir "resources/public/js/out"
@@ -85,7 +88,8 @@
                                   [figwheel-sidecar "0.5.20"]
                                   [nrepl "0.7.0"]
                                   [cider/piggieback "0.5.0"]
-                                  [clj-kondo "RELEASE"]]
+                                  [clj-kondo "RELEASE"]
+                                  [day8.re-frame/re-frame-10x "0.7.0"]]
                    :aliases {"clj-kondo" ["run" "-m" "clj-kondo.main"]}
                    :env {:db-host "localhost"
                          :db-name "patients"

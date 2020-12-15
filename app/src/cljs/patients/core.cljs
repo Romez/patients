@@ -4,7 +4,7 @@
    [reagent.core :as r]
    [reagent.dom :as d]
    [clojure.set :refer [intersection]]
-   [ajax.core :refer [GET POST DELETE PATCH]]
+   [ajax.core :refer [GET POST DELETE PATCH] :as ajax]
    [clojure.string :refer [join]]
    [reagent-modals.modals :as reagent-modals]
    [secretary.core :as secretary]
@@ -13,7 +13,24 @@
    [patients.routes :refer [get-patients-path get-patient-path]]
    [patients.validation :refer [patient-schema]]
    [patients.i18n :refer [tr]]
-   [bouncer.core :as b]))
+   [bouncer.core :as b]
+   [re-frame.core :as rf]
+   [day8.re-frame.http-fx]))
+
+(rf/reg-sub
+ :patients-request-status
+ (fn [db _]
+   (get-in db [:patients-request :status])))
+
+(rf/reg-sub
+ :patients-request-message
+ (fn [db _]
+   (get-in db [:patients-request :message])))
+
+(rf/reg-sub
+ :patients
+ (fn [db _]
+   (get-in db [:patients-request :data])))
 
 (def store (r/atom {:fetchinn-patients {:status :idle :error nil}
                     :patients {:byId {} :allIds []}
@@ -45,10 +62,28 @@
                                                                   :error (:status-text error)})
                            (throw (str error)))})))
 
+(rf/reg-event-fx
+ :page-open
+ (fn [cofx [_ {qp :qp}]]
+   {:http-xhrio {:uri (get-patients-path qp)
+                 :method :get
+                 :response-format (ajax/json-response-format {:keywords? true})
+                 :on-success      [:patients-fetched]
+                 :on-failure      [:patients-fetch-error]}
+    :db (assoc-in (:db cofx) [:patients-request :status] :loading)}))
+
+(rf/reg-event-fx
+ :patients-fetched
+ (fn [cofx [_ data]]
+   {:db (assoc-in (:db cofx) [:patients-request :data] data)}))
+
 #_:clj-kondo/ignore
 (defroute home-path "/" [_ query-params]
-  (swap! store assoc :query-params query-params)
-  (fetch-patients))
+  (rf/dispatch [:page-open {:qp query-params}])
+
+  ;; (swap! store assoc :query-params query-params)
+  ;; (fetch-patients)
+  )
 
 (defn delete-form [id]
   [fork/form {:path :delete-patient
@@ -257,12 +292,15 @@
        {:type "button" :on-click #(reagent-modals/close-modal!)}
        (tr [:close])]]]))
 
-(defn Patients [patients total fetching-patients]
-  [:div.position-relative
-   (when (= (:status fetching-patients) :failure )
-     [:p.text-danger (:error fetching-patients)])
+(defn Patients [total]
+  (let [status (rf/subscribe [:patients-request-status])
+        message (rf/subscribe [:patients-request-message])
+        patients []]
+   [:div.position-relative
+   (when (= @status :failure )
+     [:p.text-danger @message])
 
-   (when (= (:status fetching-patients) :loading )
+   (when (= @status :loading )
      [:div.d-flex.justify-content-center.align-items-center.w-100.h-100.position-absolute
       {:style {:left 0 :top 0}}
       [:div.spinner-border.text-primary
@@ -288,7 +326,7 @@
                            {:on-click #(reagent-modals/modal! [update-form id])}]
                           [:button.btn.btn-sm.btn-outline-danger.fas.fa-trash-alt.rounded-circle
                            {:on-click #(reagent-modals/modal! [delete-form id])}]]]
-             ) patients))]]])
+             ) patients))]]]))
 
 (defn Pagination [last-page current-page qp]
   [:nav
@@ -315,7 +353,9 @@
      [:nav.mb-4 {:class "navbar navbar-expand-lg navbar-light bg-light"}
       [:a {:class "navbar-brand" :href "#"} (tr [:brand])]]
 
-     [:button.btn.btn-success.mb-2 {:on-click #(reagent-modals/modal! [create-form])} (tr [:create])]
+   [:button.btn.btn-success.mb-2
+    {:on-click #(reagent-modals/modal! [create-form])}
+    (tr [:create])]
 
      [Patients
       (map #(get-in @store [:patients :byId %]) (-> @store :patients :allIds))
