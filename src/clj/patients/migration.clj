@@ -3,6 +3,7 @@
             [environ.core :refer [env]]
             [ragtime.repl :as repl]))
 
+
 (defn load-config []
   {:datastore  (jdbc/sql-database {:dbtype "postgresql"
                                    :dbname (:db-name env)

@@ -8,10 +8,16 @@ down:
 	docker-compose down
 
 run:
-	docker-compose run -p 7002:7002 -p 3449:3449 app lein figwheel
+	lein figwheel
+
+# run:
+# 	docker-compose run -p 7002:7002 -p 3449:3449 app lein figwheel
 
 prod:
 	docker-compose run app lein ring uberjar
+
+db:
+	docker-compose run db
 
 psql:
 	docker-compose exec db psql -U roman

@@ -1,26 +1,5 @@
 version: "3.8"
 services:
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile.dev
-    container_name: app
-    volumes:
-      - ./app:/app:delegated
-      - ~/.m2:/root/.m2
-    ports:
-      - 3349:3349
-      - 7002:7002
-      - 3000:3000
-    command: lein figwheel
-    depends_on:
-      - db
-    environment:
-      - DB_HOST=db
-      - DB_USER=roman
-      - DB_PASSWORD=secret
-    networks:
-      - patients-net
   db:
     image: postgres
     container_name: db
@@ -30,10 +9,10 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./app/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
       - ./db:/var/lib/postgresql/data
     networks:
-      - patients-net
+      - patients-net  
 
 networks:
   patients-net:
