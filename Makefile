@@ -7,7 +7,7 @@ build:
 down:
 	docker-compose down
 
-run:
+repl:
 	lein figwheel
 
 # run:
@@ -17,7 +17,7 @@ prod:
 	docker-compose run app lein ring uberjar
 
 db:
-	docker-compose run db
+	docker-compose up db
 
 psql:
 	docker-compose exec db psql -U roman

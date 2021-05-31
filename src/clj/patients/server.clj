@@ -2,7 +2,6 @@
   (:require
    [compojure.route :as route]
    [compojure.core :refer [defroutes GET POST PATCH DELETE context]]
-   [hiccup.page :refer [html5 include-js include-css]]
    [environ.core :refer [env]]
    [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
    [ring.middleware.params :refer [wrap-params]]
@@ -14,26 +13,13 @@
    [next.jdbc.date-time]
    [honeysql.core :as sql]
    [patients.validation :refer [validate-patient]]
-   [patients.utils :refer [unparse-date]]))
+   [patients.utils :refer [unparse-date]]
+   [patients.pages.home :refer [home-page]]))
 
 (sentry/init! (:sentry-dsn env ""))
 
-(defn page []
-  (html5
-   [:head
-    [:meta {:charset "utf-8"}]
-    [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
-    (include-css "https://use.fontawesome.com/releases/v5.7.0/css/all.css")
-    (include-css "https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css")
-    (include-css "/css/site.css")]
-   [:body
-    [:div#app "loading..."]
-    (include-js "https://code.jquery.com/jquery-3.2.1.slim.min.js")
-    (include-js "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js")
-    (include-js "/js/app.js")]))
-
 (defroutes handler
-  (GET "/" [] (page))
+  (GET "/" [] (home-page))
   (context "/api/v1/patients" []
     (GET "/" request (let [{:keys [db params]} request
                            per-page (Integer/parseInt (:per-page params "10"))
